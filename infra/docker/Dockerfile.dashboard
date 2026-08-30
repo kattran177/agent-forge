@@ -1,0 +1,15 @@
+FROM python:3.11-slim
+
+WORKDIR /app
+
+COPY requirements.txt .
+RUN pip install --no-cache-dir langgraph groq duckduckgo-search \
+    streamlit
+
+COPY src/ src/
+
+EXPOSE 8501
+
+CMD ["streamlit", "run", "src/ui/app.py", \
+     "--server.address=0.0.0.0", \
+     "--server.headless=true"]
