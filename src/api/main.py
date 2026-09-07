@@ -18,46 +18,10 @@ FastAPI is the modern standard for Python APIs because:
 from contextlib import asynccontextmanager
 
 from fastapi import FastAPI, HTTPException
-from pydantic import BaseModel, Field
 
 from src.agents.orchestrator import run_agent
+from src.api.schemas import AgentRunRequest, HealthResponse, TaskResponse
 from src.memory.store import MemoryStore
-
-
-# ── Models (request/response schemas) ─────────────────────────────
-# Pydantic models define the shape of API requests and responses.
-# FastAPI uses these for validation AND auto-generated documentation.
-
-
-class GoalRequest(BaseModel):
-    """Request body for submitting a goal to the agent system."""
-
-    goal: str = Field(
-        ...,
-        min_length=10,
-        max_length=1000,
-        description="The high-level goal for the agent system to accomplish",
-        examples=["Research the top 3 AI agent frameworks and compare them"],
-    )
-
-
-class TaskResponse(BaseModel):
-    """Response body with the agent execution results."""
-
-    goal: str
-    status: str
-    plan: dict
-    research_findings: str
-    final_report: str
-    activity_log: list
-    error: str = ""
-
-
-class HealthResponse(BaseModel):
-    """Health check response."""
-
-    status: str
-    version: str
 
 
 # ── Application setup ──────────────────────────────────────────────
@@ -91,7 +55,7 @@ async def health_check():
 
 
 @app.post("/api/v1/tasks", response_model=TaskResponse)
-async def create_task(request: GoalRequest):
+async def create_task(request: AgentRunRequest):
     """
     Submit a goal for the agent system to accomplish.
 
