@@ -20,9 +20,16 @@ from contextlib import asynccontextmanager
 from fastapi import FastAPI, HTTPException
 
 from src.agents.orchestrator import run_agent
+from src.api.middleware import CorrelationIDMiddleware
 from src.api.schemas import AgentRunRequest, HealthResponse, TaskResponse
+from src.core.logging import configure_logging, get_logger
 from src.memory.store import MemoryStore
 
+# Initialise structured JSON logging as early as possible so every log line
+# emitted during startup (including middleware registration) is structured.
+configure_logging()
+
+_logger = get_logger("api")
 
 # ── Application setup ──────────────────────────────────────────────
 
@@ -32,9 +39,9 @@ memory = MemoryStore()
 @asynccontextmanager
 async def lifespan(app: FastAPI):
     """Startup and shutdown events."""
-    print("[INFO] AgentForge API starting...")
+    _logger.info("AgentForge API starting")
     yield
-    print("[INFO] AgentForge API shutting down...")
+    _logger.info("AgentForge API shutting down")
 
 
 app = FastAPI(
@@ -43,6 +50,10 @@ app = FastAPI(
     version="1.0.0",
     lifespan=lifespan,
 )
+
+# Attach correlation ID middleware — must be registered before any routes
+# so every request (including /health) gets a correlation ID.
+app.add_middleware(CorrelationIDMiddleware)
 
 
 # ── Endpoints ──────────────────────────────────────────────────────

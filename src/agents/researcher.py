@@ -14,7 +14,10 @@ agent framework.
 """
 
 from src.agents.llm import chat
+from src.core.logging import get_logger
 from src.tools.search import web_search, format_search_results
+
+_logger = get_logger("researcher")
 
 
 RESEARCHER_SYSTEM_PROMPT = """You are a research specialist. Your job is to gather accurate, relevant information for a given task.
@@ -40,9 +43,12 @@ def research(task_description: str, context: str = "") -> str:
     Returns:
         Structured research findings as text
     """
+    _logger.info("Starting research", task=task_description)
+
     # Step 1: Search the web
     results = web_search(task_description, max_results=5)
     formatted_results = format_search_results(results)
+    _logger.info("Web search complete", result_count=len(results))
 
     # Step 2: Ask the LLM to synthesise the search results
     context_block = ""
@@ -62,4 +68,6 @@ def research(task_description: str, context: str = "") -> str:
         },
     ]
 
-    return chat(messages, temperature=0.2)
+    findings = chat(messages, temperature=0.2)
+    _logger.info("Research synthesis complete", task=task_description)
+    return findings

@@ -33,7 +33,10 @@ from langgraph.graph import StateGraph, END
 from src.agents.planner import create_plan
 from src.agents.researcher import research
 from src.agents.writer import write_report
+from src.core.logging import get_logger
 from src.memory.store import MemoryStore, TaskRecord
+
+_logger = get_logger("orchestrator")
 
 
 # ── State Definition ───────────────────────────────────────────────
@@ -74,14 +77,17 @@ def plan_node(state: dict) -> dict:
     goal = state["goal"]
     log = state.get("activity_log", [])
 
+    _logger.info("Creating execution plan", goal=goal)
     log.append({"agent": "planner", "action": "Creating execution plan..."})
 
     try:
         plan = create_plan(goal)
+        subtask_count = len(plan.get("subtasks", []))
+        _logger.info("Plan created", subtask_count=subtask_count)
         log.append(
             {
                 "agent": "planner",
-                "action": f"Plan created with {len(plan.get('subtasks', []))} subtasks",
+                "action": f"Plan created with {subtask_count} subtasks",
             }
         )
         return {
@@ -91,6 +97,7 @@ def plan_node(state: dict) -> dict:
             "activity_log": log,
         }
     except Exception as e:
+        _logger.error("Planning failed", error=str(e))
         log.append({"agent": "planner", "action": f"Planning failed: {e}"})
         return {"status": "error", "error": str(e), "activity_log": log}
 
@@ -109,12 +116,19 @@ def execute_node(state: dict) -> dict:
     log = state.get("activity_log", [])
 
     if index >= len(subtasks):
+        _logger.info("All subtasks complete")
         return {"status": "complete", "activity_log": log}
 
     task = subtasks[index]
     agent_type = task.get("agent", "researcher")
     description = task.get("description", "")
 
+    _logger.info(
+        "Executing subtask",
+        agent=agent_type,
+        task_index=index,
+        description=description,
+    )
     log.append(
         {
             "agent": agent_type,
@@ -127,6 +141,7 @@ def execute_node(state: dict) -> dict:
             result = research(description, context=findings)
             # Accumulate research findings
             findings = findings + "\n\n" + result if findings else result
+            _logger.info("Research subtask complete", task_index=index)
             log.append({"agent": "researcher", "action": "Research complete"})
             return {
                 "research_findings": findings,
@@ -137,6 +152,7 @@ def execute_node(state: dict) -> dict:
 
         elif agent_type == "writer":
             result = write_report(description, research_findings=findings)
+            _logger.info("Writing subtask complete", task_index=index)
             log.append({"agent": "writer", "action": "Report written"})
             return {
                 "final_report": result,
@@ -146,6 +162,7 @@ def execute_node(state: dict) -> dict:
             }
 
         else:
+            _logger.warning("Unknown agent type", agent=agent_type, task_index=index)
             log.append({"agent": "unknown", "action": f"Unknown agent type: {agent_type}"})
             return {
                 "current_task_index": index + 1,
@@ -153,6 +170,7 @@ def execute_node(state: dict) -> dict:
             }
 
     except Exception as e:
+        _logger.error("Subtask failed", agent=agent_type, task_index=index, error=str(e))
         log.append({"agent": agent_type, "action": f"Failed: {e}"})
         return {
             "current_task_index": index + 1,
@@ -269,7 +287,14 @@ def run_agent(goal: str, memory: MemoryStore | None = None) -> dict:
     }
 
     # Run the graph — this executes all nodes until END is reached
+    _logger.info("Agent run started", goal=goal)
     final_state = app.invoke(initial_state)
+    _logger.info(
+        "Agent run finished",
+        goal=goal,
+        status=final_state.get("status"),
+        has_error=bool(final_state.get("error")),
+    )
 
     # Save to memory if provided
     if memory:

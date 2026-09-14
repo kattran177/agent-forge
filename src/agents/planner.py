@@ -20,6 +20,9 @@ The Orchestrator then executes each step using the appropriate agent.
 import json
 
 from src.agents.llm import chat
+from src.core.logging import get_logger
+
+_logger = get_logger("planner")
 
 
 PLANNER_SYSTEM_PROMPT = """You are a task planning specialist. Your job is to decompose a user's goal into a clear, ordered list of subtasks.
@@ -52,6 +55,8 @@ def create_plan(goal: str) -> dict:
     The LLM generates a JSON plan that the Orchestrator will execute
     step by step. We parse the JSON and validate it has the right structure.
     """
+    _logger.info("Creating plan", goal=goal)
+
     messages = [
         {"role": "system", "content": PLANNER_SYSTEM_PROMPT},
         {"role": "user", "content": f"Create a plan for this goal: {goal}"},
@@ -72,6 +77,7 @@ def create_plan(goal: str) -> dict:
         plan = json.loads(cleaned)
     except json.JSONDecodeError:
         # Fallback: if parsing fails, create a simple default plan
+        _logger.warning("LLM returned invalid JSON — using default plan")
         plan = {
             "goal": goal,
             "subtasks": [
@@ -94,4 +100,5 @@ def create_plan(goal: str) -> dict:
     if "goal" not in plan:
         plan["goal"] = goal
 
+    _logger.info("Plan ready", subtask_count=len(plan["subtasks"]))
     return plan
