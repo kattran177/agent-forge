@@ -12,7 +12,7 @@ from pathlib import Path
 # Groq provides free, fast inference for open-source models.
 # Llama 3.3 70B is the best open-source model as of mid-2026.
 GROQ_API_KEY = os.getenv("GROQ_API_KEY", "")
-LLM_MODEL = os.getenv("LLM_MODEL", "llama-3.3-70b-versatile")
+LLM_MODEL = os.getenv("LLM_MODEL", "openai/gpt-oss-120b")
 LLM_TEMPERATURE = float(os.getenv("LLM_TEMPERATURE", "0.1"))
 
 # ── Memory Configuration ──────────────────────────────────────────
